@@ -125,13 +125,13 @@ function analyzeSalesData(data, options) {
 
         // Формирование топ-10 товаров с сортировкой:
         // - сначала по убыванию количества
-        // - при одинаковом количестве по убыванию артикула (чтобы совпало с эталоном)
+        // - при одинаковом количестве по убыванию артикула (строковое сравнение)
         const productList = Object.entries(seller.products_sold).map(([sku, quantity]) => ({ sku, quantity }));
         productList.sort((a, b) => {
             if (a.quantity !== b.quantity) {
-                return b.quantity - a.quantity; // по убыванию количества
+                return b.quantity - a.quantity;
             } else {
-                return b.sku.localeCompare(a.sku); // при равенстве количества — по убыванию артикула
+                return b.sku.localeCompare(a.sku); // убывание SKU
             }
         });
         seller.top_products = productList.slice(0, 10);
@@ -143,7 +143,7 @@ function analyzeSalesData(data, options) {
         name: seller.name,
         revenue: +seller.revenue.toFixed(2),
         profit: +seller.profit.toFixed(2),
-        sales_count: seller.sales_count, // целое число
+        sales_count: seller.sales_count,
         top_products: seller.top_products,
         bonus: +seller.bonus.toFixed(2)
     }));
