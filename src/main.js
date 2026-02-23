@@ -123,13 +123,15 @@ function analyzeSalesData(data, options) {
         // Расчёт бонуса
         seller.bonus = calculateBonus(index, totalSellers, seller);
 
-        // Формирование топ-10 товаров
+        // Формирование топ-10 товаров с сортировкой:
+        // - сначала по убыванию количества
+        // - при одинаковом количестве по убыванию артикула (чтобы совпало с эталоном)
         const productList = Object.entries(seller.products_sold).map(([sku, quantity]) => ({ sku, quantity }));
         productList.sort((a, b) => {
             if (a.quantity !== b.quantity) {
-                return b.quantity - a.quantity;
+                return b.quantity - a.quantity; // по убыванию количества
             } else {
-                return a.sku.localeCompare(b.sku);
+                return b.sku.localeCompare(a.sku); // при равенстве количества — по убыванию артикула
             }
         });
         seller.top_products = productList.slice(0, 10);
