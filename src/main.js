@@ -6,7 +6,6 @@
  */
 function calculateSimpleRevenue(purchase, _product) {
     const { sale_price, quantity, discount = 0 } = purchase;
-    // Коэффициент скидки: 1 - (discount / 100)
     return sale_price * quantity * (1 - discount / 100);
 }
 
@@ -20,13 +19,13 @@ function calculateSimpleRevenue(purchase, _product) {
 function calculateBonusByProfit(index, total, seller) {
     const profit = seller.profit;
     if (index === 0) {
-        return profit * 0.15; // 1 место – 15%
+        return profit * 0.15;
     } else if (index === 1 || index === 2) {
-        return profit * 0.10; // 2 и 3 места – 10%
+        return profit * 0.10;
     } else if (index === total - 1) {
-        return 0; // последнее место – 0%
+        return 0;
     } else {
-        return profit * 0.05; // остальные – 5%
+        return profit * 0.05;
     }
 }
 
@@ -58,53 +57,36 @@ function analyzeSalesData(data, options) {
     }
 
     // ========== ПОДГОТОВКА ПРОМЕЖУТОЧНЫХ ДАННЫХ ==========
-    // Создаём массив статистики для каждого продавца (все продавцы, даже без продаж)
     const sellerStats = data.sellers.map(seller => ({
         id: seller.id,
         name: `${seller.first_name || ''} ${seller.last_name || ''}`.trim() || 'Unknown',
         revenue: 0,
         profit: 0,
         sales_count: 0,
-        products_sold: {} // sku -> общее количество
+        products_sold: {}
     }));
 
-    // Индекс для быстрого доступа к статистике продавца по id
     const sellerIndex = {};
-    sellerStats.forEach(stat => {
-        sellerIndex[stat.id] = stat;
-    });
+    sellerStats.forEach(stat => { sellerIndex[stat.id] = stat; });
 
-    // Индекс для быстрого доступа к товарам по sku
     const productIndex = {};
-    data.products.forEach(product => {
-        productIndex[product.sku] = product;
-    });
+    data.products.forEach(product => { productIndex[product.sku] = product; });
 
     // ========== ОБРАБОТКА ЗАПИСЕЙ О ПРОДАЖАХ ==========
     data.purchase_records.forEach(record => {
         const seller = sellerIndex[record.seller_id];
-        if (!seller) return; // на случай несуществующего продавца
+        if (!seller) return;
 
-        // Увеличиваем количество продаж (каждый чек — одна продажа)
         seller.sales_count += 1;
-
-        // Увеличиваем общую выручку на сумму чека
         seller.revenue += record.total_amount;
 
-        // Обрабатываем все позиции в чеке для расчёта прибыли и учёта товаров
         if (Array.isArray(record.items)) {
             record.items.forEach(item => {
-                // Выручка за позицию (по правилам магазина)
                 const revenueItem = calculateRevenue(item, productIndex[item.sku]);
-
-                // Себестоимость товара
                 const product = productIndex[item.sku];
                 const cost = product ? product.purchase_price * item.quantity : 0;
-
-                // Прибыль от этой позиции и добавляем к общей прибыли продавца
                 seller.profit += (revenueItem - cost);
 
-                // Учёт проданных товаров для будущего топа
                 const sku = item.sku;
                 if (!seller.products_sold[sku]) {
                     seller.products_sold[sku] = 0;
@@ -114,34 +96,27 @@ function analyzeSalesData(data, options) {
         }
     });
 
-    // ========== СОРТИРОВКА ПРОДАВЦОВ ПО ПРИБЫЛИ (УБЫВАНИЕ) ==========
+    // ========== СОРТИРОВКА ПРОДАВЦОВ ПО ПРИБЫЛИ ==========
     sellerStats.sort((a, b) => b.profit - a.profit);
 
-    // ========== РАСЧЁТ БОНУСОВ И ФОРМИРОВАНИЕ ТОП-10 ТОВАРОВ ==========
+    // ========== РАСЧЁТ БОНУСОВ И ФОРМИРОВАНИЕ ТОП-10 ==========
     const totalSellers = sellerStats.length;
     sellerStats.forEach((seller, index) => {
-        // Расчёт бонуса
         seller.bonus = calculateBonus(index, totalSellers, seller);
 
-        // Формирование топ-10 товаров
         const productList = Object.entries(seller.products_sold).map(([sku, quantity]) => ({ sku, quantity }));
-        productList.sort((a, b) => {
-            if (a.quantity !== b.quantity) {
-                return b.quantity - a.quantity;
-            } else {
-                return a.sku.localeCompare(b.sku);
-            }
-        });
+        // Только сортировка по убыванию количества, при равных количествах порядок сохраняется (стабильная сортировка)
+        productList.sort((a, b) => b.quantity - a.quantity);
         seller.top_products = productList.slice(0, 10);
     });
 
-    // ========== ФОРМИРОВАНИЕ ИТОГОВОГО ОТЧЁТА С ОКРУГЛЕНИЕМ ==========
+    // ========== ИТОГОВЫЙ ОТЧЁТ ==========
     return sellerStats.map(seller => ({
         seller_id: seller.id,
         name: seller.name,
         revenue: +seller.revenue.toFixed(2),
         profit: +seller.profit.toFixed(2),
-        sales_count: seller.sales_count, // целое число
+        sales_count: seller.sales_count,
         top_products: seller.top_products,
         bonus: +seller.bonus.toFixed(2)
     }));
